@@ -238,7 +238,7 @@ coverIt(){
 						MyGui.Maximize()
 						guiMaximized := 1
 					}
-					If (A_TimeIdle > (timeIdleMin * 4)) {
+					If (A_TimeIdle > (timeIdleMin * 6)) {
 						TurnOff(oledNumber)
 					}
 				}
