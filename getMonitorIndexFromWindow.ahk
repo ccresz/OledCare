@@ -1,33 +1,19 @@
 GetMonitorIndexFromWindow(windowHandle)
 {
-	; Starts with 1.
 	monitorIndex := 1
-
-	;VarSetCapacity(monitorInfo, 40) //v1
-	;NumPut(40, monitorInfo) //v1
-	;if (monitorHandle := DllCall("MonitorFromWindow", "uint", windowHandle, "uint", 0x2)) && DllCall("GetMonitorInfo", "uint", monitorHandle, "uint", &monitorInfo) //v1
 	monitorInfo := Buffer(40, 0)
-	;monitorInfo := 0
-	;VarSetStrCapacity(&monitorInfo, 40)
 	NumPut("ptr", 40, monitorInfo)
-	
-	if (monitorHandle := DllCall("MonitorFromWindow", "uint", windowHandle, "uint", 0x2)) 
-		&& DllCall("GetMonitorInfo", "uint", monitorHandle, "UPtr", monitorInfo.ptr) 
+
+	if (monitorHandle := DllCall("MonitorFromWindow", "uint", windowHandle, "uint", 0x2))
+		&& DllCall("GetMonitorInfo", "uint", monitorHandle, "UPtr", monitorInfo.ptr)
 	{
 		monitorLeft   := NumGet(monitorInfo,  4, "Int")
 		monitorTop    := NumGet(monitorInfo,  8, "Int")
 		monitorRight  := NumGet(monitorInfo, 12, "Int")
 		monitorBottom := NumGet(monitorInfo, 16, "Int")
-		workLeft      := NumGet(monitorInfo, 20, "Int")
-		workTop       := NumGet(monitorInfo, 24, "Int")
-		workRight     := NumGet(monitorInfo, 28, "Int")
-		workBottom    := NumGet(monitorInfo, 32, "Int")
-		isPrimary     := NumGet(monitorInfo, 36, "Int") & 1
 
 		Loop MonitorGetCount() {
 			MonitorGet(A_Index, &tempMonLeft, &tempMonTop, &tempMonRight, &tempMonBottom)
-
-			; Compare location to determine the monitor index.
 			if ((monitorLeft = tempMonLeft) and (monitorTop = tempMonTop)
 				and (monitorRight = tempMonRight) and (monitorBottom = tempMonBottom))
 			{
@@ -36,26 +22,54 @@ GetMonitorIndexFromWindow(windowHandle)
 			}
 		}
 	}
-	
+
 	return monitorIndex
 }
 
 GetMonitorWindowCount(monitorIndex)
 {
-	winList := WinGetList()
-	winTitleMsg := ""
 	winCount := 0
-	for currentHWND in winList {
-		;MsgBox (WinGetTitle(currentHWND) . " HWND: " . currentHWND)
-		monIndex := GetMonitorIndexFromWindow(currentHWND)
-		if (monIndex = monitorIndex && WinGetTitle(currentHWND) != "taskbarDimV2.2.ahk" && WinGetTitle(currentHWND) != "") {
-			;MsgBox (WinGetTitle(currentHWND) . " Monitor: " . monIndex)
-			++winCount
+	try {
+		for currentHWND in WinGetList() {
+			title := WinGetTitle(currentHWND)
+			if (title = "" || title = "oledCare.ahk")
+				continue
+			if (GetMonitorIndexFromWindow(currentHWND) = monitorIndex)
+				++winCount
 		}
-		;winTitleMsg .= WinGetTitle(currentHWND) . " Monitor: " . monIndex
 	}
-
 	return winCount
+}
+
+hasFullScreenWindow(monitorIndex, monitorWidth, monitorHeight)
+{
+	static excludedClasses := ["Progman", "WorkerW"]
+	try {
+		for currentHWND in WinGetList() {
+			winTitle := WinGetTitle(currentHWND)
+			if (winTitle = "" || winTitle = "oledCare.ahk" || winTitle = "Program Manager")
+				continue
+			if (GetMonitorIndexFromWindow(currentHWND) != monitorIndex)
+				continue
+			winClass := WinGetClass(currentHWND)
+			isExcluded := false
+			for cls in excludedClasses {
+				if (winClass = cls) {
+					isExcluded := true
+					break
+				}
+			}
+			if (isExcluded)
+				continue
+			style := WinGetStyle(currentHWND)
+			WinGetPos(&X, &Y, &winW, &winH, currentHWND)
+			if ((style & 0x20800000) = 0 and winW >= monitorWidth and winH >= monitorHeight) {
+				LogVerbose("hasFullScreenWindow: MATCH hwnd=" currentHWND " title='" winTitle "' class='" winClass "' style=" style " W=" winW " H=" winH)
+				return currentHWND
+			}
+		}
+	}
+	return false
 }
 
 ;MsgBox (GetMonitorWindowCount(2))
