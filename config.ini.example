@@ -33,6 +33,9 @@ GuiHorizontalPadding=34
 GuiCenteringOffset=4
 ; Extra pixels added to overlay width in the active-state resize to align with monitor bounds
 OverlayWidthAdjustment=3
+; Max hotkey events AHK allows per interval (default 70). Touchpad scrolling fires rapid wheel events
+; that count as hotkeys. Increase this if you get "too many hotkeys" warnings while scrolling.
+MaxHotkeysPerInterval=200
 
 [Lively]
 ; Path to the Lively Wallpaper command-line utility (leave empty to disable)

@@ -49,6 +49,7 @@ if !FileExist(configPath) {
 
 cfg := LoadConfig(configPath)
 verboseLog := cfg["verboseLog"]
+A_MaxHotkeysPerInterval := cfg["maxHotkeysPerInterval"]
 Log("Config loaded: " ConfigToString(cfg))
 
 ; ============================================================
@@ -62,6 +63,7 @@ Log("Final oledNumber=" oledNumber)
 ; State — single Map shared across timer callbacks
 ; ============================================================
 state := Map(
+	"oledNumber", oledNumber,
 	"mouseMoved", 0,
 	"guiMaximized", 0,
 	"myGui", "",
@@ -80,7 +82,7 @@ state := Map(
 ; ============================================================
 if (oledNumber != -1) {
 	InitGui(oledNumber, cfg, state)
-	SetTimer () => CoverIt(oledNumber, cfg, state), cfg["timerIntervalMs"]
+	SetTimer () => CoverIt(cfg, state), cfg["timerIntervalMs"]
 	Log("GUI shown and timer started (interval=" cfg["timerIntervalMs"] "ms)")
 }
 return
@@ -112,6 +114,7 @@ LoadConfig(path) {
 	c["guiHorizontalPadding"] := Integer(IniRead(path, "GUI", "GuiHorizontalPadding", "34"))
 	c["guiCenteringOffset"]   := Integer(IniRead(path, "GUI", "GuiCenteringOffset", "4"))
 	c["overlayWidthAdjust"]   := Integer(IniRead(path, "GUI", "OverlayWidthAdjustment", "3"))
+	c["maxHotkeysPerInterval"]:= Integer(IniRead(path, "GUI", "MaxHotkeysPerInterval", "200"))
 
 	; Idle multipliers with validation
 	defOverlay := 1.2, defTurnOff := 6.0
@@ -288,8 +291,43 @@ InitGui(oledNumber, cfg, state) {
 
 ; --- Main timer callback ------------------------------------------------------
 
-CoverIt(oledNumber, cfg, state) {
+CoverIt(cfg, state) {
 	myID := state["myID"]
+	oledNumber := state["oledNumber"]
+
+	; Check if the OLED monitor is still connected
+	if (oledNumber > MonitorGetCount()) {
+		; Monitor was disconnected — hide overlay and reset state
+		if (!state.Has("monitorLost") || state["monitorLost"] = 0) {
+			Log("Monitor " oledNumber " disconnected (MonitorGetCount=" MonitorGetCount() "). Hiding overlay.")
+			state["monitorLost"] := 1
+			WinHide myID
+			if (state["guiMaximized"] = 1) {
+				state["myGui"].Restore()
+				state["guiMaximized"] := 0
+			}
+			ShowCursor()
+			ResumeLively(cfg)
+			state["mouseMoved"] := 0
+		}
+		return
+	}
+
+	; Monitor is back — re-detect index (it may have changed) and reinitialise
+	if (state.Has("monitorLost") && state["monitorLost"] = 1) {
+		newOledNumber := FindOledMonitor(cfg)
+		if (newOledNumber = -1) {
+			LogVerbose("Monitor count restored but OLED not found yet, waiting...")
+			return
+		}
+		Log("Monitor reconnected as index " newOledNumber " (was " oledNumber "). Reinitialising GUI.")
+		state["oledNumber"] := newOledNumber
+		state["monitorLost"] := 0
+		oledNumber := newOledNumber
+		InitGui(oledNumber, cfg, state)
+		myID := state["myID"]
+	}
+
 	timeIdleMin := cfg["timeIdleSeconds"] * 1000
 	isFull := IsActiveWindowFullScreen(myID, state)
 
