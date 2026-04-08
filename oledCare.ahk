@@ -382,6 +382,7 @@ OnIdle(oledNumber, cfg, state, timeIdleMin) {
 		CoordMode "Mouse", "Screen"
 		MouseMove (A_ScreenWidth // 2), (A_ScreenHeight // 2)
 		state["mouseMoved"] := 1
+		HideCursor()
 		return
 	}
 
@@ -390,7 +391,6 @@ OnIdle(oledNumber, cfg, state, timeIdleMin) {
 			WinSetTransparent cfg["dimmingTransparency"], myID
 			state["myGui"].Maximize()
 			state["guiMaximized"] := 1
-			HideCursor()
 			PauseLively(cfg)
 			return
 		}
