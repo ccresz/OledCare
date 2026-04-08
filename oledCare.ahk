@@ -20,6 +20,15 @@ LogVerbose(msg) {
 	if (verboseLog)
 		Log(msg)
 }
+; --- Scroll wheel resets idle timer (AHK doesn't count scroll as activity by default) ---
+~WheelUp::
+~WheelDown::
+~WheelLeft::
+~WheelRight::
+{
+	return  ; the ~ prefix passes the event through; firing the hotkey resets A_TimeIdlePhysical
+}
+
 Log("========== OledCare Started ==========")
 
 ; ============================================================
