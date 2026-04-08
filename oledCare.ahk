@@ -26,10 +26,16 @@ Log("========== OledCare Started ==========")
 ; Config
 ; ============================================================
 configPath := A_ScriptDir "\config.ini"
+configExamplePath := A_ScriptDir "\config.ini.example"
 if !FileExist(configPath) {
-	Log("ERROR: config.ini not found at " configPath)
-	MsgBox "config.ini not found in " A_ScriptDir ". Please create it."
-	ExitApp
+	if FileExist(configExamplePath) {
+		Log("config.ini not found, falling back to " configExamplePath)
+		configPath := configExamplePath
+	} else {
+		Log("ERROR: Neither config.ini nor config.ini.example found in " A_ScriptDir)
+		MsgBox "config.ini not found in " A_ScriptDir ".`nCopy config.ini.example to config.ini and edit it for your setup."
+		ExitApp
+	}
 }
 
 cfg := LoadConfig(configPath)
@@ -65,8 +71,8 @@ state := Map(
 ; ============================================================
 if (oledNumber != -1) {
 	InitGui(oledNumber, cfg, state)
-	SetTimer () => CoverIt(oledNumber, cfg, state), 500
-	Log("GUI shown and timer started")
+	SetTimer () => CoverIt(oledNumber, cfg, state), cfg["timerIntervalMs"]
+	Log("GUI shown and timer started (interval=" cfg["timerIntervalMs"] "ms)")
 }
 return
 
@@ -81,15 +87,22 @@ LoadConfig(path) {
 	c["verboseLog"]           := IniRead(path, "Logging", "VerboseLog", "false") = "true"
 	c["singleMonitorIsOled"]  := IniRead(path, "Monitor", "SingleMonitorIsOled", "false") = "true"
 	c["oledMonitorModelName"] := IniRead(path, "Monitor", "OledMonitorModelName", "AW3423DWF")
-	c["oledMonitorModelName2"]:= IniRead(path, "Monitor", "OledMonitorModelName2", "Samsung Oled Display")
+	c["oledMonitorModelName2"]:= IniRead(path, "Monitor", "OledMonitorModelName2", "Samsung OLED Display")
 	c["oledDefaultWidth"]     := Integer(IniRead(path, "Monitor", "OledDefaultWidth", "3440"))
 	c["oledDefaultHeight"]    := Integer(IniRead(path, "Monitor", "OledDefaultHeight", "1440"))
 	c["taskbarIconWidth"]     := Integer(IniRead(path, "Taskbar", "TaskbarIconWidth", "32"))
 	c["taskbarIconHeight"]    := Integer(IniRead(path, "Taskbar", "TaskbarIconHeight", "48"))
 	c["coverTransparency"]    := Integer(IniRead(path, "Display", "CoverTransparency", "225"))
+	c["dimmingTransparency"]  := Integer(IniRead(path, "Display", "DimmingTransparency", "252"))
 	c["timeIdleSeconds"]      := Integer(IniRead(path, "Idle", "TimeIdleSeconds", "30"))
 	c["turnOffMode"]          := IniRead(path, "Idle", "TurnOffMode", "overlay")
 	c["livelyPath"]           := IniRead(path, "Lively", "CommandUtilityPath", "")
+
+	; GUI layout
+	c["timerIntervalMs"]      := Integer(IniRead(path, "GUI", "TimerIntervalMs", "500"))
+	c["guiHorizontalPadding"] := Integer(IniRead(path, "GUI", "GuiHorizontalPadding", "34"))
+	c["guiCenteringOffset"]   := Integer(IniRead(path, "GUI", "GuiCenteringOffset", "4"))
+	c["overlayWidthAdjust"]   := Integer(IniRead(path, "GUI", "OverlayWidthAdjustment", "3"))
 
 	; Idle multipliers with validation
 	defOverlay := 1.2, defTurnOff := 6.0
@@ -114,10 +127,15 @@ ConfigToString(c) {
 		. " taskbarIconWidth=" c["taskbarIconWidth"]
 		. " taskbarIconHeight=" c["taskbarIconHeight"]
 		. " coverTransparency=" c["coverTransparency"]
+		. " dimmingTransparency=" c["dimmingTransparency"]
 		. " timeIdleSeconds=" c["timeIdleSeconds"]
 		. " turnOffMode=" c["turnOffMode"]
 		. " overlayMultiplier=" c["overlayMultiplier"]
 		. " turnOffMultiplier=" c["turnOffMultiplier"]
+		. " timerIntervalMs=" c["timerIntervalMs"]
+		. " guiHorizontalPadding=" c["guiHorizontalPadding"]
+		. " guiCenteringOffset=" c["guiCenteringOffset"]
+		. " overlayWidthAdjust=" c["overlayWidthAdjust"]
 		. " singleMonitorIsOled=" (c["singleMonitorIsOled"] ? "true" : "false")
 		. " verboseLog=" (c["verboseLog"] ? "true" : "false")
 		. " livelyPath=" c["livelyPath"]
@@ -226,8 +244,8 @@ InitGui(oledNumber, cfg, state) {
 	center := Integer(WL + (mw / 2))
 
 	winOnCount := GetMonitorWindowCount(oledNumber)
-	guiW := (winOnCount * cfg["taskbarIconWidth"]) + 34
-	guiX := Integer(center - (guiW / 2) + cfg["taskbarIconWidth"] - 4)
+	guiW := (winOnCount * cfg["taskbarIconWidth"]) + cfg["guiHorizontalPadding"]
+	guiX := Integer(center - (guiW / 2) + cfg["taskbarIconWidth"] - cfg["guiCenteringOffset"])
 
 	Log("monitorWidth=" mw " monitorHeight=" mh " fullMonitorWidth=" fmw " fullMonitorHeight=" fmh)
 	Log("screenCenter=" center " guiX=" guiX " dimTop=" dimTop " guiW=" guiW " guiH=" guiH)
@@ -322,7 +340,7 @@ OnIdle(oledNumber, cfg, state, timeIdleMin) {
 
 	if (A_TimeIdlePhysical > (timeIdleMin * cfg["overlayMultiplier"])) {
 		if (state["guiMaximized"] = 0) {
-			WinSetTransparent 252, myID
+			WinSetTransparent cfg["dimmingTransparency"], myID
 			state["myGui"].Maximize()
 			state["guiMaximized"] := 1
 			HideCursor()
@@ -354,8 +372,8 @@ OnActive(oledNumber, cfg, state) {
 		ShowCursor()
 		if (cfg["turnOffMode"] = "real")
 			TurnOn(oledNumber)
-		guiW := state["monitorWidth"] + 3
-		guiX := Integer(state["screenCenter"] - (guiW / 2) + cfg["taskbarIconWidth"] - 34)
+		guiW := state["monitorWidth"] + cfg["overlayWidthAdjust"]
+		guiX := Integer(state["screenCenter"] - (guiW / 2) + cfg["taskbarIconWidth"] - cfg["guiHorizontalPadding"])
 		WinMove(guiX, state["dimTop"], guiW, state["guiH"], myID)
 	}
 }
@@ -413,11 +431,30 @@ ResumeLively(cfg) {
 ; --- Cursor visibility --------------------------------------------------------
 
 HideCursor() {
-	andMask := Buffer(4, 0xFF)
-	xorMask := Buffer(4, 0x00)
+	andMask := Buffer(4, 0xFF)  ; AND mask: all 1s = transparent
+	xorMask := Buffer(4, 0x00)  ; XOR mask: all 0s = no inversion
 	blankCursor := DllCall("CreateCursor", "Ptr", 0, "Int", 0, "Int", 0
 		, "Int", 1, "Int", 1, "Ptr", andMask.Ptr, "Ptr", xorMask.Ptr, "Ptr")
-	static cursorIDs := [32512, 32513, 32514, 32515, 32516, 32631, 32640, 32641, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651]
+	; Standard system cursor IDs (OCR_* constants)
+	static cursorIDs := [
+		32512,  ; OCR_NORMAL / IDC_ARROW
+		32513,  ; OCR_IBEAM
+		32514,  ; OCR_WAIT
+		32515,  ; OCR_CROSS
+		32516,  ; OCR_UP / IDC_UPARROW
+		32631,  ; undocumented/legacy
+		32640,  ; OCR_SIZE (obsolete)
+		32641,  ; OCR_ICON (obsolete)
+		32642,  ; OCR_SIZENWSE
+		32643,  ; OCR_SIZENESW
+		32644,  ; OCR_SIZEWE
+		32645,  ; OCR_SIZENS
+		32646,  ; OCR_SIZEALL
+		32648,  ; OCR_NO
+		32649,  ; OCR_HAND
+		32650,  ; OCR_APPSTARTING
+		32651   ; OCR_HELP
+	]
 	for id in cursorIDs {
 		copy := DllCall("CopyImage", "Ptr", blankCursor, "UInt", 2, "Int", 0, "Int", 0, "UInt", 0, "Ptr")
 		DllCall("SetSystemCursor", "Ptr", copy, "UInt", id)
@@ -426,5 +463,6 @@ HideCursor() {
 }
 
 ShowCursor() {
+	; SPI_SETCURSORS = 0x0057 — restores all system cursors from registry defaults
 	DllCall("SystemParametersInfo", "UInt", 0x0057, "UInt", 0, "Ptr", 0, "UInt", 0)
 }

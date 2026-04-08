@@ -1,0 +1,44 @@
+[Monitor]
+; If true, treat the single monitor as the OLED to protect (set to false if your only monitor is not OLED, e.g. a ips laptop screen)
+SingleMonitorIsOled=false
+OledMonitorModelName=AW3423DWF
+OledMonitorModelName2=Samsung OLED Display
+OledDefaultWidth=3440
+OledDefaultHeight=1440
+
+[Taskbar]
+TaskbarIconWidth=32
+TaskbarIconHeight=48
+
+[Display]
+CoverTransparency=225
+; Transparency when the fullscreen dimming overlay activates (before full turn-off). 252 = nearly opaque.
+DimmingTransparency=252
+
+[Idle]
+TimeIdleSeconds=30
+; Multiplier applied to TimeIdleSeconds before activating the fullscreen dimming overlay (must be > 1.0)
+OverlayMultiplier=1.2
+; Multiplier applied to TimeIdleSeconds before turning off the monitor (must be > OverlayMultiplier)
+TurnOffMultiplier=6.0
+; How to turn off the monitor after extended idle: "overlay" (default) makes screen fully black via overlay, "real" sends DDC/CI power off command
+TurnOffMode=overlay
+
+[GUI]
+; How often (ms) the script checks window state and idle time
+TimerIntervalMs=500
+; Extra width added to the overlay to account for horizontal margins around taskbar icons
+GuiHorizontalPadding=34
+; Pixel offset to visually center the overlay over the taskbar icons
+GuiCenteringOffset=4
+; Extra pixels added to overlay width in the active-state resize to align with monitor bounds
+OverlayWidthAdjustment=3
+
+[Lively]
+; Path to the Lively Wallpaper command-line utility (leave empty to disable)
+CommandUtilityPath=
+
+[Logging]
+; Set to true for detailed debug logging (timer ticks, fullscreen checks). Set to false for startup-only logging.
+VerboseLog=false
+
